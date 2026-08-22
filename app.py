@@ -1,21 +1,18 @@
-import os
 import glob
+import os
 import shutil
 import tempfile
 
-import gradio as gr
+import streamlit as st
 import yt_dlp
 from faster_whisper import WhisperModel
 
-MODEL_CACHE = {}
+st.set_page_config(page_title="Video → Guion", page_icon="🎬")
 
 
+@st.cache_resource(show_spinner=False)
 def get_model(model_size: str) -> WhisperModel:
-    if model_size not in MODEL_CACHE:
-        MODEL_CACHE[model_size] = WhisperModel(
-            model_size, device="cpu", compute_type="int8"
-        )
-    return MODEL_CACHE[model_size]
+    return WhisperModel(model_size, device="cpu", compute_type="int8")
 
 
 def download_audio(url: str, tmp_dir: str) -> str:
@@ -42,74 +39,62 @@ def download_audio(url: str, tmp_dir: str) -> str:
     return matches[0]
 
 
-def transcribe_video(url: str, model_size: str, progress=gr.Progress()):
-    if not url or not url.strip():
-        return "Pega primero un link de YouTube, TikTok o Instagram."
-
+def transcribe(url: str, model_size: str) -> str:
     tmp_dir = tempfile.mkdtemp(prefix="transcriptor_")
     try:
-        progress(0.1, desc="Descargando audio del vídeo...")
-        audio_path = download_audio(url.strip(), tmp_dir)
+        with st.status("Descargando audio del vídeo...") as status:
+            audio_path = download_audio(url, tmp_dir)
 
-        progress(0.4, desc=f"Transcribiendo con Whisper ({model_size})...")
-        model = get_model(model_size)
-        segments, _info = model.transcribe(audio_path, language=None)
+            status.update(label=f"Transcribiendo con Whisper ({model_size})...")
+            model = get_model(model_size)
+            segments, _info = model.transcribe(audio_path, language=None)
+            text = " ".join(segment.text.strip() for segment in segments).strip()
 
-        progress(0.9, desc="Montando el guion...")
-        text = " ".join(segment.text.strip() for segment in segments).strip()
-
-        if not text:
-            return "No se detectó voz en el vídeo (o el idioma no se pudo reconocer)."
-
+            status.update(label="Guion listo", state="complete")
         return text
-
-    except yt_dlp.utils.DownloadError:
-        return (
-            "No se pudo descargar ese vídeo. Puede ser privado, haber sido "
-            "borrado, o la plataforma está bloqueando la descarga en este momento."
-        )
-    except Exception as exc:  # noqa: BLE001 - mostramos el error al usuario en la UI
-        return f"Ha ocurrido un error: {exc}"
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-with gr.Blocks(title="Video → Guion") as demo:
-    gr.Markdown(
-        "# 🎬 Video → Guion\n"
-        "Pega un link de **YouTube, TikTok o Instagram** y saca la transcripción "
-        "del vídeo (el guion) en texto. 100% gratis, corre con modelos Whisper locales."
-    )
+st.title("🎬 Video → Guion")
+st.write(
+    "Pega un link de **YouTube, TikTok o Instagram** y saca la transcripción "
+    "del vídeo (el guion) en texto. 100% gratis, corre con Whisper local."
+)
 
-    with gr.Row():
-        url_input = gr.Textbox(
-            label="Link del vídeo",
-            placeholder="https://www.tiktok.com/@usuario/video/...",
-            scale=3,
-        )
-        model_choice = gr.Dropdown(
-            choices=["tiny", "base", "small"],
-            value="base",
-            label="Modelo",
-            info="Más grande = más preciso pero más lento",
-            scale=1,
-        )
+url = st.text_input(
+    "Link del vídeo", placeholder="https://www.tiktok.com/@usuario/video/..."
+)
+model_size = st.selectbox(
+    "Modelo",
+    ["tiny", "base", "small"],
+    index=1,
+    help="Más grande = más preciso pero más lento",
+)
 
-    transcribe_btn = gr.Button("Transcribir", variant="primary")
-    output = gr.Textbox(label="Guion", lines=18, show_copy_button=True)
+if st.button("Transcribir", type="primary"):
+    if not url.strip():
+        st.warning("Pega primero un link de YouTube, TikTok o Instagram.")
+    else:
+        try:
+            text = transcribe(url.strip(), model_size)
+            if not text:
+                st.warning(
+                    "No se detectó voz en el vídeo (o el idioma no se pudo reconocer)."
+                )
+            else:
+                st.text_area("Guion", text, height=400)
+                st.download_button("Descargar .txt", text, file_name="guion.txt")
+        except yt_dlp.utils.DownloadError:
+            st.error(
+                "No se pudo descargar ese vídeo. Puede ser privado, haber sido "
+                "borrado, o la plataforma está bloqueando la descarga en este momento."
+            )
+        except Exception as exc:  # noqa: BLE001 - mostramos el error al usuario en la UI
+            st.error(f"Ha ocurrido un error: {exc}")
 
-    transcribe_btn.click(
-        fn=transcribe_video,
-        inputs=[url_input, model_choice],
-        outputs=output,
-    )
-
-    gr.Markdown(
-        "---\n"
-        "⚠️ Úsalo solo con vídeos públicos y respeta los términos de servicio "
-        "de cada plataforma. Pensado para uso personal (sacar guiones propios "
-        "o de referencia), no para scraping masivo."
-    )
-
-if __name__ == "__main__":
-    demo.queue().launch()
+st.caption(
+    "⚠️ Úsalo solo con vídeos públicos y respeta los términos de servicio de cada "
+    "plataforma. Pensado para sacar guiones propios o de referencia, no para "
+    "scraping masivo."
+)
