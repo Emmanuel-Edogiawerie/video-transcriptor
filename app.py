@@ -47,7 +47,13 @@ def transcribe(url: str, model_size: str) -> str:
 
             status.update(label=f"Transcribiendo con Whisper ({model_size})...")
             model = get_model(model_size)
-            segments, _info = model.transcribe(audio_path, language=None)
+            segments, _info = model.transcribe(
+                audio_path,
+                language=None,
+                vad_filter=True,
+                vad_parameters=dict(min_silence_duration_ms=500),
+                condition_on_previous_text=False,
+            )
             text = " ".join(segment.text.strip() for segment in segments).strip()
 
             status.update(label="Guion listo", state="complete")
@@ -68,8 +74,8 @@ url = st.text_input(
 model_size = st.selectbox(
     "Modelo",
     ["tiny", "base", "small"],
-    index=1,
-    help="Más grande = más preciso pero más lento",
+    index=2,
+    help="Más grande = más preciso pero más lento. 'small' alucina mucho menos que 'tiny'/'base'.",
 )
 
 if st.button("Transcribir", type="primary"):
