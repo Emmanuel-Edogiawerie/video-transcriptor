@@ -3,6 +3,7 @@ import glob
 import os
 import shutil
 import tempfile
+import time
 
 import requests
 import streamlit as st
@@ -17,7 +18,7 @@ def get_model(model_size: str) -> WhisperModel:
     return WhisperModel(model_size, device="cpu", compute_type="int8")
 
 
-def download_audio(url: str, tmp_dir: str) -> tuple[str, dict]:
+def download_audio(url: str, tmp_dir: str, attempts: int = 3) -> tuple[str, dict]:
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
@@ -31,14 +32,27 @@ def download_audio(url: str, tmp_dir: str) -> tuple[str, dict]:
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
+        # YouTube ha reforzado la detección de bots contra IPs de datacenter
+        # (como las de Streamlit Cloud); el cliente "android" la esquiva con
+        # más frecuencia que el cliente web por defecto.
+        "extractor_args": {"youtube": {"player_client": ["android"]}},
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
 
-    matches = glob.glob(os.path.join(tmp_dir, "audio.*"))
-    if not matches:
-        raise RuntimeError("No se pudo extraer el audio del vídeo.")
-    return matches[0], info
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            matches = glob.glob(os.path.join(tmp_dir, "audio.*"))
+            if not matches:
+                raise RuntimeError("No se pudo extraer el audio del vídeo.")
+            return matches[0], info
+        except yt_dlp.utils.DownloadError as exc:
+            last_error = exc
+            if attempt < attempts:
+                time.sleep(2 * attempt)
+
+    raise last_error
 
 
 def format_timestamp(seconds: float) -> str:
@@ -157,8 +171,12 @@ MODEL_SIZE = "small"
 idioma_label = st.selectbox(
     "Idioma del vídeo",
     ["Auto-detectar", "Español", "English"],
-    index=1,
-    help="Forzar el idioma reduce errores de reconocimiento en clips cortos.",
+    index=0,
+    help=(
+        "Si sabes el idioma del vídeo, fuerzalo para reducir errores. "
+        "Ojo: forzar el idioma equivocado hace que Whisper 'traduzca' mal "
+        "sin avisar, en vez de fallar."
+    ),
 )
 IDIOMAS = {"Auto-detectar": None, "Español": "es", "English": "en"}
 
