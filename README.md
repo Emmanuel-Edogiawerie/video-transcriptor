@@ -3,13 +3,13 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![Streamlit](https://img.shields.io/badge/built%20with-Streamlit-FF4B4B)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-[![Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://video-transcriptor.streamlit.app)
+[![Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://video-transcriptor-aqdekpefvrzz4rf9mfnss7.streamlit.app)
 
 Pega el link de un vídeo de **YouTube, TikTok o Instagram** y obtén su
 transcripción completa — el guion — en unos segundos. Sin APIs de pago, sin
 cuentas, sin límites de uso: todo corre con modelos **Whisper en local**.
 
-**🔗 Pruébalo:** https://video-transcriptor.streamlit.app
+**🔗 Pruébalo:** https://video-transcriptor-aqdekpefvrzz4rf9mfnss7.streamlit.app
 
 **Incluye:**
 - 📝 Guion con **timestamp por línea** (`[mm:ss]`)
@@ -105,6 +105,11 @@ video-transcriptor/
   `small` es más preciso pero tarda más en vídeos largos.
 - Instagram a veces bloquea descargas sin sesión iniciada — puede fallar en
   contenido privado o restringido.
+- YouTube y TikTok refuerzan cada vez más la detección de bots contra IPs de
+  datacenter (como las de Streamlit Cloud), así que la descarga puede fallar
+  de forma intermitente — el mismo vídeo puede funcionar en un intento y
+  fallar en el siguiente. La app reintenta automáticamente 3 veces antes de
+  rendirse.
 - Pensado para sacar guiones propios o de referencia sobre vídeo **público**,
   no para scraping masivo. Respeta los términos de servicio de cada
   plataforma.
