@@ -91,7 +91,17 @@ def build_markdown(text: str, info: dict) -> str:
     return frontmatter + text
 
 
-def analizar_hook(texto: str, api_key: str) -> str:
+def analizar_hook(texto: str, api_key: str, nicho: str) -> str:
+    bloque_adaptacion = (
+        "4. **Adaptación a mi canal**: usando la MISMA mecánica de hook y "
+        f"estructura (no el mismo tema ni las mismas palabras), propón una idea "
+        f"nueva para un canal de {nicho or 'el nicho del usuario'}: título, "
+        "hook adaptado (1-2 líneas) y los mismos beats aplicados a ese tema."
+        if nicho.strip()
+        else "4. **Adaptación**: usando la MISMA mecánica de hook y estructura "
+        "(no el mismo tema ni las mismas palabras), propón una idea nueva para "
+        "otro tema, con título, hook adaptado y los beats aplicados."
+    )
     resp = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
@@ -102,23 +112,29 @@ def analizar_hook(texto: str, api_key: str) -> str:
                     "role": "system",
                     "content": (
                         "Eres un analista de contenido short-form (TikTok/Reels/Shorts) "
-                        "experto en hooks y estructura narrativa. Respondes en español, "
-                        "directo y sin relleno."
+                        "experto en hooks y estructura narrativa. Tu trabajo es enseñar "
+                        "el MECANISMO que hace funcionar un vídeo para que se pueda "
+                        "reaplicar a otro tema — nunca copiar guion, texto o frases "
+                        "literales del original. Respondes en español, directo y sin "
+                        "relleno."
                     ),
                 },
                 {
                     "role": "user",
                     "content": (
-                        "Analiza este guion de vídeo. Responde en 3 bloques:\n"
+                        "Analiza este guion de vídeo. Responde en 4 bloques:\n"
                         "1. **Hook**: cuál es (las primeras 1-2 líneas) y si es fuerte "
-                        "o débil, y por qué.\n"
-                        "2. **Estructura**: los beats del vídeo en 3-5 puntos.\n"
-                        "3. **Mejora**: una sugerencia concreta y accionable.\n\n"
+                        "o débil, y por qué funciona a nivel psicológico.\n"
+                        "2. **Estructura**: los beats del vídeo en 3-5 puntos (qué "
+                        "función cumple cada uno, no solo qué dice).\n"
+                        "3. **Mejora**: una sugerencia concreta y accionable sobre el "
+                        "original.\n"
+                        f"{bloque_adaptacion}\n\n"
                         f"Guion:\n{texto}"
                     ),
                 },
             ],
-            "temperature": 0.4,
+            "temperature": 0.5,
         },
         timeout=60,
     )
@@ -209,19 +225,28 @@ if "guion" in st.session_state:
         mime="text/markdown",
     )
 
-    with st.expander("🪝 Analizar hook y estructura (requiere API key gratis de Groq)"):
+    with st.expander(
+        "🪝 Analizar hook y estructura + adaptar a mi canal (requiere API key gratis de Groq)"
+    ):
         st.caption(
-            "Consigue una key gratis en https://console.groq.com/keys (sin tarjeta)."
+            "Consigue una key gratis en https://console.groq.com/keys (sin tarjeta). "
+            "Esto no copia el guion — te enseña el mecanismo (hook + estructura) "
+            "para que lo repliques con tu propio tema."
         )
         groq_key = st.text_input("Groq API key", type="password")
-        if st.button("Analizar"):
+        nicho = st.text_input(
+            "Tu nicho / canal (opcional)",
+            placeholder="Ej: tech en español, apps Android, IA aplicada, DAM",
+            help="Cuanto más concreto, más útil sale la idea adaptada.",
+        )
+        if st.button("Analizar y adaptar"):
             if not groq_key.strip():
                 st.warning("Pega tu API key de Groq primero.")
             else:
                 try:
                     with st.spinner("Analizando..."):
                         analisis = analizar_hook(
-                            st.session_state["guion"], groq_key.strip()
+                            st.session_state["guion"], groq_key.strip(), nicho
                         )
                     st.markdown(analisis)
                 except requests.HTTPError as exc:
