@@ -11,6 +11,12 @@ cuentas, sin límites de uso: todo corre con modelos **Whisper en local**.
 
 **🔗 Pruébalo:** https://video-transcriptor.streamlit.app
 
+**Incluye:**
+- 📝 Guion con **timestamp por línea** (`[mm:ss]`)
+- 📊 **Analíticas del vídeo** (vistas, likes, comentarios, duración) sacadas de los metadatos públicos de la plataforma
+- 📄 Export en **`.md` con frontmatter**, listo para pegar en Obsidian
+- 🪝 **Análisis de hook y estructura** opcional, vía Groq (LLM gratuito, cada usuario usa su propia API key)
+
 ## Por qué existe
 
 Lo hice para dejar de perder tiempo transcribiendo a mano mis propios vídeos
@@ -23,25 +29,33 @@ piezas open source que corren sin coste ni claves de API.
 
 ```mermaid
 flowchart LR
-    A["🔗 Link del vídeo"] --> B["yt-dlp<br/>descarga el audio"]
+    A["🔗 Link del vídeo"] --> B["yt-dlp<br/>descarga audio + metadatos"]
     B --> C["ffmpeg<br/>convierte a mp3"]
     C --> D["faster-whisper<br/>transcribe en local"]
-    D --> E["📝 Guion en texto"]
+    D --> E["📝 Guion con timestamps"]
+    B --> F["📊 Vistas / likes / comentarios"]
+    E -.opcional.-> G["🪝 Groq LLM<br/>hook + estructura"]
 ```
 
-1. **yt-dlp** descarga el audio del vídeo a partir del link.
-2. **ffmpeg** lo convierte a mp3.
-3. **faster-whisper** (Whisper corriendo en local, sin API) lo transcribe a texto.
-4. **Streamlit** muestra el resultado con opción de descargar el `.txt`.
+1. **yt-dlp** descarga el audio del vídeo a partir del link, y de paso trae
+   metadatos públicos (vistas, likes, comentarios, duración).
+2. **ffmpeg** convierte el audio a mp3.
+3. **faster-whisper** (Whisper corriendo en local, sin API) lo transcribe a
+   texto con timestamp por línea.
+4. **Streamlit** muestra guion + analíticas, y permite descargar el guion en
+   `.md` con frontmatter (listo para Obsidian).
+5. *(Opcional)* con una API key gratuita de Groq, un LLM analiza el hook y la
+   estructura del guion.
 
 ## Stack
 
 | Pieza | Uso |
 |---|---|
 | [Streamlit](https://streamlit.io) | interfaz web |
-| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | descarga de vídeo/audio |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | descarga de vídeo/audio + metadatos/analíticas |
 | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | transcripción (Whisper + CTranslate2) |
 | [ffmpeg](https://ffmpeg.org) | procesado de audio |
+| [Groq](https://console.groq.com) (opcional) | LLM gratuito para el análisis de hook/estructura |
 
 ## Uso rápido en local
 
@@ -97,8 +111,11 @@ video-transcriptor/
 
 ## Roadmap
 
-- [ ] Timestamps por segmento (además del texto plano)
-- [ ] Detección/selección manual de idioma
+- [x] Timestamps por segmento
+- [x] Selección manual de idioma
+- [x] Analíticas del vídeo (vistas/likes/comentarios)
+- [x] Análisis de hook y estructura (Groq)
+- [x] Export a `.md` con frontmatter
 - [ ] Exportar directamente a `.srt`
 
 ## Licencia
