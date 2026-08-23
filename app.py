@@ -73,21 +73,14 @@ st.write(
 url = st.text_input(
     "Link del vídeo", placeholder="https://www.tiktok.com/@usuario/video/..."
 )
-col1, col2 = st.columns(2)
-with col1:
-    model_size = st.selectbox(
-        "Modelo",
-        ["tiny", "base", "small"],
-        index=2,
-        help="Más grande = más preciso pero más lento. 'small' alucina mucho menos que 'tiny'/'base'.",
-    )
-with col2:
-    idioma_label = st.selectbox(
-        "Idioma del vídeo",
-        ["Auto-detectar", "Español", "English"],
-        index=1,
-        help="Forzar el idioma reduce errores de reconocimiento en clips cortos.",
-    )
+MODEL_SIZE = "small"
+
+idioma_label = st.selectbox(
+    "Idioma del vídeo",
+    ["Auto-detectar", "Español", "English"],
+    index=1,
+    help="Forzar el idioma reduce errores de reconocimiento en clips cortos.",
+)
 IDIOMAS = {"Auto-detectar": None, "Español": "es", "English": "en"}
 
 vocabulario = st.text_input(
@@ -102,7 +95,7 @@ if st.button("Transcribir", type="primary"):
     else:
         try:
             text = transcribe(
-                url.strip(), model_size, IDIOMAS[idioma_label], vocabulario
+                url.strip(), MODEL_SIZE, IDIOMAS[idioma_label], vocabulario
             )
             if not text:
                 st.warning(
