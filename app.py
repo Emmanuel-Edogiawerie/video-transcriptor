@@ -39,7 +39,7 @@ def download_audio(url: str, tmp_dir: str) -> str:
     return matches[0]
 
 
-def transcribe(url: str, model_size: str) -> str:
+def transcribe(url: str, model_size: str, language: str | None, vocabulary: str) -> str:
     tmp_dir = tempfile.mkdtemp(prefix="transcriptor_")
     try:
         with st.status("Descargando audio del vídeo...") as status:
@@ -49,12 +49,14 @@ def transcribe(url: str, model_size: str) -> str:
             model = get_model(model_size)
             segments, _info = model.transcribe(
                 audio_path,
-                language=None,
+                language=language,
                 vad_filter=True,
                 vad_parameters=dict(min_silence_duration_ms=500),
                 condition_on_previous_text=False,
+                initial_prompt=vocabulary.strip() or None,
             )
-            text = " ".join(segment.text.strip() for segment in segments).strip()
+            lines = [segment.text.strip() for segment in segments if segment.text.strip()]
+            text = "\n".join(lines)
 
             status.update(label="Guion listo", state="complete")
         return text
@@ -71,11 +73,27 @@ st.write(
 url = st.text_input(
     "Link del vídeo", placeholder="https://www.tiktok.com/@usuario/video/..."
 )
-model_size = st.selectbox(
-    "Modelo",
-    ["tiny", "base", "small"],
-    index=2,
-    help="Más grande = más preciso pero más lento. 'small' alucina mucho menos que 'tiny'/'base'.",
+col1, col2 = st.columns(2)
+with col1:
+    model_size = st.selectbox(
+        "Modelo",
+        ["tiny", "base", "small"],
+        index=2,
+        help="Más grande = más preciso pero más lento. 'small' alucina mucho menos que 'tiny'/'base'.",
+    )
+with col2:
+    idioma_label = st.selectbox(
+        "Idioma del vídeo",
+        ["Auto-detectar", "Español", "English"],
+        index=1,
+        help="Forzar el idioma reduce errores de reconocimiento en clips cortos.",
+    )
+IDIOMAS = {"Auto-detectar": None, "Español": "es", "English": "en"}
+
+vocabulario = st.text_input(
+    "Vocabulario / nombres propios (opcional)",
+    placeholder="Ej: OSA, EMMScode, Kotlin, backend, DAM",
+    help="Palabras, nombres o anglicismos que suelen salir mal. Ayuda a Whisper a reconocerlos.",
 )
 
 if st.button("Transcribir", type="primary"):
@@ -83,7 +101,9 @@ if st.button("Transcribir", type="primary"):
         st.warning("Pega primero un link de YouTube, TikTok o Instagram.")
     else:
         try:
-            text = transcribe(url.strip(), model_size)
+            text = transcribe(
+                url.strip(), model_size, IDIOMAS[idioma_label], vocabulario
+            )
             if not text:
                 st.warning(
                     "No se detectó voz en el vídeo (o el idioma no se pudo reconocer)."
